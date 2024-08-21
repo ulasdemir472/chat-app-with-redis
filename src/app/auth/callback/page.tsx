@@ -1,7 +1,20 @@
+"use client";
+import { handleAuth } from "@/actions/auth.actions";
+import { useQuery } from "@tanstack/react-query";
 import { Loader } from "lucide-react";
+import { useRouter } from "next/navigation";
 import React from "react";
 
-const page = () => {
+const AuthCallback = () => {
+  const router = useRouter();
+
+  const { data } = useQuery({
+    queryKey: ["auth"],
+    queryFn: async () => await handleAuth(),
+  });
+
+  if (data?.success) router.push("/");
+
   return (
     <div className="mt-20 w-full flex justify-center">
       <div className="flex flex-col items-center gap-2">
@@ -13,4 +26,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default AuthCallback;
