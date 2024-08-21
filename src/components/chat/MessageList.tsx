@@ -2,7 +2,6 @@ import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { messages, USERS } from "@/db/dummy";
 import { cn } from "@/lib/utils";
-import { useSelectedUser } from "./../../store/useSelectedUser";
 import { Avatar } from "@radix-ui/react-avatar";
 import { AvatarImage } from "../ui/avatar";
 

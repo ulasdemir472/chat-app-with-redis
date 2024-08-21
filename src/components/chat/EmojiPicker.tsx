@@ -23,7 +23,7 @@ const EmojiPicker = ({ onChange }: EmojiPickerProps) => {
           emojiSize={18}
           data={data}
           maxFrequentRows={1}
-          theme={theme === "dark" ? "dark" : "light"}
+          theme={theme}
           onEmojiSelect={(emoji: any) => onChange(emoji.native)}
         />
       </PopoverContent>
