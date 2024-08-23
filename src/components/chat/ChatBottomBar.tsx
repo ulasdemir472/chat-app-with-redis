@@ -20,16 +20,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { CldUploadWidget, CloudinaryUploadWidgetInfo } from "next-cloudinary";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { sendMessageAction } from "@/actions/message.actions";
 import { Message } from "@/db/dummy";
+import { pusherClient } from "@/lib/pusher";
 
 const ChatBottomBar = () => {
   const [message, setMessage] = useState("");
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const { selectedUser } = useSelectedUser();
+  const { user: currentUser } = useKindeBrowserClient();
+
+  const queryClient = useQueryClient();
+
   const { soundEnabled } = usePreferences();
   const [imgUrl, setImgUrl] = useState("");
-
-  const isPending = false;
 
   const [playSound1] = useSound("/sounds/keystroke1.mp3");
   const [playSound2] = useSound("/sounds/keystroke2.mp3");
@@ -45,9 +52,18 @@ const ChatBottomBar = () => {
     soundEnabled && playSoundFunctions[randomIndex]();
   };
 
+  const { mutate: sendMessage, isPending } = useMutation({
+    mutationFn: sendMessageAction,
+  });
+
   const handleSendMessage = () => {
     if (!message.trim()) return;
 
+    sendMessage({
+      content: message,
+      type: "text",
+      receiverId: selectedUser?.id!,
+    });
     setMessage("");
 
     textAreaRef.current?.focus();
@@ -65,8 +81,62 @@ const ChatBottomBar = () => {
     }
   };
 
+  useEffect(() => {
+    const channelName = `${currentUser?.id}__${selectedUser?.id}`
+      .split("__")
+      .sort()
+      .join("__");
+    const channel = pusherClient?.subscribe(channelName);
+
+    const handleNewMessage = (data: { message: Message }) => {
+      queryClient.setQueryData(
+        ["messages", selectedUser?.id],
+        (oldMessages: Message[]) => {
+          return [...oldMessages, data.message];
+        }
+      );
+
+      if (soundEnabled && data.message.senderId !== currentUser?.id) {
+        playNotificationSound();
+      }
+    };
+
+    channel.bind("newMessage", handleNewMessage);
+
+    // ! Absolutely important, otherwise the event listener will be added multiple times which means you'll see the incoming new message multiple times
+    return () => {
+      channel.unbind("newMessage", handleNewMessage);
+      pusherClient.unsubscribe(channelName);
+    };
+  }, [
+    currentUser?.id,
+    selectedUser?.id,
+    queryClient,
+    playNotificationSound,
+    soundEnabled,
+  ]);
+
   return (
     <div className="p-2 flex justify-between w-full items-center gap-2">
+      {!message.trim() && (
+        <CldUploadWidget
+          signatureEndpoint={"/api/sign-cloudinary"}
+          onSuccess={(result, { widget }) => {
+            setImgUrl((result.info as CloudinaryUploadWidgetInfo).secure_url);
+            widget.close();
+          }}
+        >
+          {({ open }) => {
+            return (
+              <ImageIcon
+                size={20}
+                onClick={() => open()}
+                className="cursor-pointer text-muted-foreground"
+              />
+            );
+          }}
+        </CldUploadWidget>
+      )}
       <Dialog open={!!imgUrl}>
         <DialogContent>
           <DialogHeader>
@@ -85,7 +155,11 @@ const ChatBottomBar = () => {
             <Button
               type="submit"
               onClick={() => {
-                //sendMessage({ content: imgUrl, messageType: "image", receiverId: selectedUser?.id! });
+                sendMessage({
+                  content: imgUrl,
+                  type: "image",
+                  receiverId: selectedUser?.id!,
+                });
                 setImgUrl("");
               }}
             >
@@ -95,12 +169,9 @@ const ChatBottomBar = () => {
         </DialogContent>
       </Dialog>
 
-      {!message.trim() && (
-        <ImageIcon size={20} className="cursor-pointer text-muted-foreground" />
-      )}
-
       <AnimatePresence>
         <motion.div
+          key={message}
           layout
           initial={{ opacity: 0, scale: 1 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -160,11 +231,11 @@ const ChatBottomBar = () => {
                 size={20}
                 className="text-muted-foreground"
                 onClick={() => {
-                  // sendMessage({
-                  //   content: "👍",
-                  //   messageType: "text",
-                  //   receiverId: selectedUser?.id!,
-                  // });
+                  sendMessage({
+                    content: "👍",
+                    type: "text",
+                    receiverId: selectedUser?.id!,
+                  });
                 }}
               />
             )}
