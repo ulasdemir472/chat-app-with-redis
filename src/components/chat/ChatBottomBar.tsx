@@ -171,7 +171,6 @@ const ChatBottomBar = () => {
 
       <AnimatePresence>
         <motion.div
-          key={message}
           layout
           initial={{ opacity: 0, scale: 1 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -187,10 +186,10 @@ const ChatBottomBar = () => {
         >
           <Textarea
             autoComplete="off"
-            placeholder="Aa"
+            placeholder="Write a message..."
             rows={1}
             className="w-full border rounded-full flex items-center h-9 resize-none overflow-hidden
-						bg-background min-h-0"
+						bg-background min-h-0 sm:h-10"
             value={message}
             onKeyDown={handleKeyDown}
             onChange={(e) => {
